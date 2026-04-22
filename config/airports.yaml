@@ -1,0 +1,31 @@
+# Airport configuration
+primary_airport:
+  name: "Adolfo Suarez Madrid-Barajas"
+  icao: "LEMD"
+  iata: "MAD"
+  latitude: 40.4936
+  longitude: -3.5668
+  elevation_m: 609
+  timezone: "Europe/Madrid"
+  country_code: "ES"
+
+# Geospatial analysis bands (km from airport centroid)
+analysis_bands:
+  inner: 15
+  middle: 40
+  outer: 80
+
+# Bounding box for FlightRadarAPI (~80km radius)
+bounding_box:
+  north: 41.21
+  south: 39.78
+  east: -2.63
+  west: -4.50
+
+# Optional second airport for validation
+# secondary_airport:
+#   name: "Barcelona-El Prat"
+#   icao: "LEBL"
+#   iata: "BCN"
+#   latitude: 41.2971
+#   longitude: 2.0785

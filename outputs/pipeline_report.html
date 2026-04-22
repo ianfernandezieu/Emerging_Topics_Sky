@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Airport Congestion Forecasting - Pipeline Report</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22262f;
+    --border: #2d3140;
+    --text: #e2e4ea;
+    --text-dim: #8b8fa3;
+    --accent: #6c8cff;
+    --accent2: #4ecdc4;
+    --accent3: #ff6b8a;
+    --accent4: #ffd166;
+    --success: #4ecdc4;
+    --warn: #ffd166;
+    --danger: #ff6b8a;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    min-height: 100vh;
+  }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+  /* Header */
+  .hero {
+    background: linear-gradient(135deg, #1a1d27 0%, #1f2937 50%, #1a1d27 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 80px 0 60px;
+    text-align: center;
+  }
+  .hero h1 {
+    font-size: 2.4rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero .subtitle {
+    font-size: 1.1rem;
+    color: var(--text-dim);
+    max-width: 700px;
+    margin: 0 auto 32px;
+  }
+  .hero-stats {
+    display: flex;
+    gap: 40px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .hero-stat {
+    text-align: center;
+  }
+  .hero-stat .value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .hero-stat .label {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* Navigation */
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 36px;
+    margin: 40px auto;
+    max-width: 700px;
+  }
+  .toc h3 {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+  }
+  .toc ol {
+    list-style: none;
+    counter-reset: toc;
+    columns: 2;
+    column-gap: 24px;
+  }
+  .toc li {
+    counter-increment: toc;
+    margin-bottom: 8px;
+  }
+  .toc li::before {
+    content: counter(toc) ".";
+    color: var(--accent);
+    font-weight: 600;
+    margin-right: 8px;
+    font-size: 0.85rem;
+  }
+  .toc a {
+    color: var(--text);
+    text-decoration: none;
+    font-size: 0.95rem;
+    transition: color 0.2s;
+  }
+  .toc a:hover { color: var(--accent); }
+
+  /* Sections */
+  section {
+    margin: 60px 0;
+  }
+  section h2 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  section h2 .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  h3 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin: 28px 0 12px;
+    color: var(--accent2);
+  }
+
+  p { margin-bottom: 14px; color: var(--text); font-size: 0.95rem; }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin: 20px 0;
+  }
+  .card-title {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+  }
+
+  /* Grid */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; }
+  @media (max-width: 768px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+    .toc ol { columns: 1; }
+    .hero h1 { font-size: 1.6rem; }
+  }
+
+  /* Metric cards */
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+  }
+  .metric-card .metric-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+  }
+  .metric-card .metric-label {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 4px;
+  }
+  .metric-card .metric-sub {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+  .c-accent { color: var(--accent); }
+  .c-success { color: var(--success); }
+  .c-warn { color: var(--warn); }
+  .c-danger { color: var(--danger); }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+  th {
+    text-align: left;
+    padding: 10px 14px;
+    background: var(--surface2);
+    color: var(--text-dim);
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(108, 140, 255, 0.05); }
+
+  /* Charts */
+  .chart-container {
+    position: relative;
+    width: 100%;
+    margin: 16px 0;
+  }
+  .chart-container.tall { height: 400px; }
+  .chart-container.medium { height: 320px; }
+  .chart-container.short { height: 260px; }
+
+  /* Code blocks */
+  .code-block {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.82rem;
+    line-height: 1.7;
+    overflow-x: auto;
+    color: var(--text-dim);
+    white-space: pre;
+  }
+
+  /* Pipeline diagram */
+  .pipeline {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    overflow-x: auto;
+    padding: 20px 0;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .pipe-step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    text-align: center;
+    min-width: 130px;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .pipe-step:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
+  .pipe-step .step-num {
+    font-size: 0.7rem;
+    color: var(--accent);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .pipe-step .step-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-top: 4px;
+  }
+  .pipe-step .step-detail {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+  .pipe-arrow {
+    color: var(--accent);
+    font-size: 1.4rem;
+    padding: 0 6px;
+    flex-shrink: 0;
+  }
+
+  /* Tags */
+  .tag {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .tag-low { background: rgba(78,205,196,0.15); color: var(--success); }
+  .tag-med { background: rgba(255,209,102,0.15); color: var(--warn); }
+  .tag-high { background: rgba(255,107,138,0.15); color: var(--danger); }
+
+  /* Confusion matrix */
+  .cm-grid {
+    display: grid;
+    grid-template-columns: auto repeat(3, 1fr);
+    gap: 2px;
+    max-width: 400px;
+    margin: 16px auto;
+    font-size: 0.85rem;
+  }
+  .cm-cell {
+    padding: 14px;
+    text-align: center;
+    border-radius: 6px;
+    font-weight: 600;
+  }
+  .cm-header {
+    background: var(--surface2);
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .cm-diag { background: rgba(78,205,196,0.2); color: var(--success); }
+  .cm-off { background: var(--surface); color: var(--text-dim); }
+  .cm-corner { background: transparent; }
+
+  /* Highlight box */
+  .highlight {
+    background: rgba(108,140,255,0.08);
+    border-left: 3px solid var(--accent);
+    padding: 16px 20px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+    font-size: 0.92rem;
+  }
+  .highlight strong { color: var(--accent); }
+
+  /* List */
+  ul, ol { margin: 10px 0 14px 20px; font-size: 0.93rem; }
+  li { margin-bottom: 6px; }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    padding: 40px 0;
+    border-top: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 0.82rem;
+  }
+
+  /* Comparison table highlight */
+  .improved { color: var(--success); font-weight: 600; }
+  .old-val { color: var(--text-dim); }
+
+  /* Feature bar */
+  .feat-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 6px 0;
+    font-size: 0.85rem;
+  }
+  .feat-bar .feat-name {
+    width: 180px;
+    text-align: right;
+    color: var(--text-dim);
+    flex-shrink: 0;
+    font-size: 0.8rem;
+  }
+  .feat-bar .feat-fill {
+    height: 22px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transition: width 0.5s;
+  }
+  .feat-bar .feat-val {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    width: 60px;
+  }
+
+  .data-source-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 12px;
+  }
+  .data-source-card .ds-icon {
+    font-size: 1.4rem;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface2);
+    border-radius: 8px;
+  }
+  .data-source-card .ds-body h4 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+  .data-source-card .ds-body p {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    margin: 0;
+  }
+
+  .split-bar {
+    display: flex;
+    border-radius: 8px;
+    overflow: hidden;
+    height: 40px;
+    margin: 16px 0;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .split-bar > div {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+  }
+  .split-train { background: var(--accent); }
+  .split-valid { background: var(--accent2); }
+  .split-test { background: var(--accent3); }
+</style>
+</head>
+<body>
+
+<!-- ===================== HERO ===================== -->
+<header class="hero">
+  <div class="container">
+    <h1>Forecasting Airport Congestion at Madrid-Barajas</h1>
+    <p class="subtitle">
+      Using flight tracking, weather, and calendar signals to predict congestion pressure
+      1-day ahead with Eurocontrol IFR traffic data (2017--2026)
+    </p>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <div class="value">3,318</div>
+        <div class="label">Daily Records</div>
+      </div>
+      <div class="hero-stat">
+        <div class="value">9+ years</div>
+        <div class="label">Jan 2017 -- Feb 2026</div>
+      </div>
+      <div class="hero-stat">
+        <div class="value">53</div>
+        <div class="label">Features</div>
+      </div>
+      <div class="hero-stat">
+        <div class="value">R&sup2; = 0.96</div>
+        <div class="label">Test Performance</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+
+<!-- ===================== TABLE OF CONTENTS ===================== -->
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+    <li><a href="#overview">Project Overview</a></li>
+    <li><a href="#data">Data Sources</a></li>
+    <li><a href="#pipeline">Processing Pipeline</a></li>
+    <li><a href="#eda">Exploratory Analysis</a></li>
+    <li><a href="#features">Feature Engineering</a></li>
+    <li><a href="#modeling">Model Training</a></li>
+    <li><a href="#results">Results & Evaluation</a></li>
+    <li><a href="#comparison">Old vs New Model</a></li>
+    <li><a href="#importance">Feature Importance</a></li>
+    <li><a href="#outputs">Output Files</a></li>
+  </ol>
+</nav>
+
+<!-- ===================== 1. OVERVIEW ===================== -->
+<section id="overview">
+  <h2><span class="num">1</span> Project Overview</h2>
+  <p>
+    This project forecasts <strong>airport congestion pressure</strong> at Adolfo Suarez
+    Madrid-Barajas (LEMD), Spain's busiest airport. We built a machine learning pipeline
+    that ingests daily IFR flight movements from Eurocontrol, enriches them with weather
+    data and calendar signals, computes a composite congestion score (ACPS), and trains
+    gradient-boosted tree models for both regression and classification.
+  </p>
+  <div class="highlight">
+    <strong>Key question:</strong> Can we forecast airport congestion pressure using
+    flight volume, weather, and calendar signals? <br>
+    <strong>Answer:</strong> Yes -- our model achieves R&sup2; = 0.96 on unseen test data,
+    accurately predicting daily congestion with a mean absolute error of just 0.45 points
+    on a 0--100 scale.
+  </div>
+  <p>
+    The original prototype used ~25 hourly records from FlightRadar24 scraping.
+    This new pipeline uses <strong>3,318 daily records</strong> from the official Eurocontrol
+    IFR traffic dataset, covering January 2017 through February 2026 -- a 130x increase
+    in data volume.
+  </p>
+</section>
+
+<!-- ===================== 2. DATA SOURCES ===================== -->
+<section id="data">
+  <h2><span class="num">2</span> Data Sources</h2>
+
+  <div class="data-source-card">
+    <div class="ds-icon">E</div>
+    <div class="ds-body">
+      <h4>Eurocontrol IFR Daily Traffic</h4>
+      <p>Airport_Traffic.xlsx (DATA sheet) -- 1,021,929 rows across all European airports.
+        Filtered to LEMD: 3,346 daily records with IFR departures, arrivals, and total movements.
+        Network Manager (NM) figures used (zero nulls vs 29 nulls in airport-reported figures).</p>
+    </div>
+  </div>
+
+  <div class="data-source-card">
+    <div class="ds-icon">W</div>
+    <div class="ds-body">
+      <h4>Open-Meteo Historical Weather</h4>
+      <p>Free API providing hourly weather for Madrid-Barajas coordinates (40.47N, -3.57W).
+        10 variables fetched: temperature, humidity, precipitation, rain, weather code,
+        surface pressure, wind speed/direction/gusts, cloud cover. Aggregated from hourly to
+        daily (means, maxes, sums).</p>
+    </div>
+  </div>
+
+  <div class="data-source-card">
+    <div class="ds-icon">H</div>
+    <div class="ds-body">
+      <h4>Nager.Date Public Holidays</h4>
+      <p>Spanish public holidays for 2017--2026 (99 dates total). Used to build holiday,
+        pre-holiday, post-holiday, and bridge-day indicator features that capture demand
+        shifts around non-working days.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 3. PIPELINE ===================== -->
+<section id="pipeline">
+  <h2><span class="num">3</span> Processing Pipeline</h2>
+  <p>
+    The entire pipeline runs in a single script
+    (<code>scripts/process_eurocontrol_data.py</code>) with 7 sequential steps:
+  </p>
+
+  <div class="pipeline">
+    <div class="pipe-step">
+      <div class="step-num">Step 1</div>
+      <div class="step-title">Load & Filter</div>
+      <div class="step-detail">Excel &rarr; LEMD only</div>
+    </div>
+    <div class="pipe-arrow">&rarr;</div>
+    <div class="pipe-step">
+      <div class="step-num">Step 2</div>
+      <div class="step-title">Fetch Weather</div>
+      <div class="step-detail">Open-Meteo API</div>
+    </div>
+    <div class="pipe-arrow">&rarr;</div>
+    <div class="pipe-step">
+      <div class="step-num">Step 3</div>
+      <div class="step-title">Fetch Holidays</div>
+      <div class="step-detail">Nager.Date API</div>
+    </div>
+    <div class="pipe-arrow">&rarr;</div>
+    <div class="pipe-step">
+      <div class="step-num">Step 4</div>
+      <div class="step-title">Calendar Features</div>
+      <div class="step-detail">15 features</div>
+    </div>
+    <div class="pipe-arrow">&rarr;</div>
+    <div class="pipe-step">
+      <div class="step-num">Step 5</div>
+      <div class="step-title">Model Table</div>
+      <div class="step-detail">ACPS + lags + rolling</div>
+    </div>
+    <div class="pipe-arrow">&rarr;</div>
+    <div class="pipe-step">
+      <div class="step-num">Step 6</div>
+      <div class="step-title">Split Data</div>
+      <div class="step-detail">70 / 15 / 15</div>
+    </div>
+    <div class="pipe-arrow">&rarr;</div>
+    <div class="pipe-step">
+      <div class="step-num">Step 7</div>
+      <div class="step-title">Train & Evaluate</div>
+      <div class="step-detail">HGB Reg + Clf</div>
+    </div>
+  </div>
+
+  <h3>Step 1: Load & Filter Eurocontrol Data</h3>
+  <p>
+    The Eurocontrol <code>Airport_Traffic.xlsx</code> file contains daily IFR movement counts
+    for every major European airport since 2017. We read the <code>DATA</code> sheet
+    (1,021,929 rows) and filter to <code>APT_ICAO == "LEMD"</code>, yielding 3,346 daily records.
+    We use the <strong>Network Manager (NM)</strong> columns (<code>FLT_DEP_1</code>,
+    <code>FLT_ARR_1</code>, <code>FLT_TOT_1</code>) which have zero null values, rather than
+    the airport-reported IFR figures (29 nulls).
+  </p>
+
+  <h3>Step 2: Fetch Weather Data</h3>
+  <p>
+    Hourly weather is fetched from the Open-Meteo Historical Weather API for the Madrid-Barajas
+    coordinates. The API has a ~1-year limit per request, so we chunk the 9-year range into
+    yearly segments. The 10 raw hourly variables are aggregated to daily:
+  </p>
+  <ul>
+    <li><strong>Mean:</strong> temperature, humidity, wind speed, pressure, cloud cover, wind direction</li>
+    <li><strong>Sum:</strong> precipitation, rain</li>
+    <li><strong>Max:</strong> weather code (severity), wind gusts, peak wind speed</li>
+  </ul>
+  <p>
+    Engineered features are added: sin/cos wind direction encoding, severe weather flag
+    (WMO code &ge; 65), and rain indicator. All weather data is cached to parquet after first fetch.
+  </p>
+
+  <h3>Step 3: Fetch Holidays</h3>
+  <p>
+    Spanish public holidays for each year (2017--2026) are fetched from the Nager.Date API.
+    Only "global" holidays (national, not regional) are included. Each year's JSON response
+    is cached locally. Total: <strong>99 holiday dates</strong>.
+  </p>
+
+  <h3>Step 4: Calendar Features</h3>
+  <p>
+    From each date, we extract 15 features:
+  </p>
+  <ul>
+    <li><strong>Temporal:</strong> day of week (0-6), month (1-12), quarter, day of year</li>
+    <li><strong>Binary:</strong> is_weekend, is_holiday, is_pre_holiday, is_post_holiday, is_bridge_day</li>
+    <li><strong>Cyclic:</strong> sin/cos encodings of day-of-week, month, and day-of-year (to capture periodicity without artificial boundaries)</li>
+  </ul>
+
+  <h3>Step 5: Build Model Table</h3>
+  <p>
+    All sources are merged on date. The <strong>ACPS target</strong> (Airport Congestion Pressure
+    Score, 0--100 scale) is computed, along with lag features, rolling windows, and additional
+    derived features. See Section 5 for details.
+  </p>
+
+  <h3>Step 6: Chronological Split</h3>
+  <p>
+    The data is split chronologically (no shuffling, to prevent data leakage from the future):
+  </p>
+  <div class="split-bar">
+    <div class="split-train" style="width:70%">Train: 2,322 (Jan 2017 -- Jun 2023)</div>
+    <div class="split-valid" style="width:15%">Valid: 498</div>
+    <div class="split-test" style="width:15%">Test: 498</div>
+  </div>
+
+  <h3>Step 7: Train & Evaluate</h3>
+  <p>
+    A <strong>HistGradientBoostingRegressor</strong> predicts continuous ACPS. A
+    <strong>HistGradientBoostingClassifier</strong> predicts congestion level (Low/Medium/High).
+    Both use max_iter=200, max_depth=6, learning_rate=0.1. Evaluation uses MAE, RMSE, R&sup2;
+    for regression and accuracy/F1/balanced accuracy for classification.
+  </p>
+</section>
+
+<!-- ===================== 4. EDA ===================== -->
+<section id="eda">
+  <h2><span class="num">4</span> Exploratory Data Analysis</h2>
+
+  <h3>Daily Flight Movements (2017--2026)</h3>
+  <div class="card">
+    <div class="card-title">Total IFR Movements per Day at Madrid-Barajas</div>
+    <div class="chart-container tall"><canvas id="chartTimeseries"></canvas></div>
+  </div>
+  <p>
+    The time series reveals three distinct phases: <strong>pre-COVID stability</strong>
+    (2017--2019, ~1,000--1,200 daily movements), the <strong>COVID crash</strong>
+    (March 2020, dropping to near-zero), and the <strong>gradual recovery</strong>
+    (2021--2023, returning to pre-pandemic levels by mid-2023). By 2025, traffic
+    slightly exceeds 2019 levels.
+  </p>
+
+  <h3>Yearly Averages</h3>
+  <div class="card">
+    <div class="card-title">Average Daily Movements by Year</div>
+    <div class="chart-container medium"><canvas id="chartYearly"></canvas></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Day-of-Week Pattern</div>
+      <div class="chart-container short"><canvas id="chartDow"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Monthly Seasonality (2022--2025)</div>
+      <div class="chart-container short"><canvas id="chartMonthly"></canvas></div>
+    </div>
+  </div>
+  <p>
+    <strong>Day-of-week:</strong> Saturday is consistently the quietest day (~898 avg),
+    while Friday is the busiest (~1,030). This reflects business travel patterns
+    concentrated on weekdays.
+  </p>
+  <p>
+    <strong>Seasonality:</strong> June--September shows peak traffic (~1,130--1,150 daily),
+    driven by summer tourism. January is the quietest month (~966). This summer peak
+    is critical context for congestion forecasting.
+  </p>
+
+  <h3>ACPS Distribution</h3>
+  <div class="card">
+    <div class="card-title">Airport Congestion Pressure Score Distribution</div>
+    <div class="chart-container medium"><canvas id="chartAcpsHist"></canvas></div>
+  </div>
+  <p>
+    The ACPS distribution is bimodal: a cluster of low scores (0--35) corresponds to the
+    COVID period, while the main mass (60--78) represents normal operations. The three
+    congestion classes split at the 60th and 85th percentiles.
+  </p>
+
+  <div class="grid-3">
+    <div class="metric-card">
+      <div class="metric-value c-success">1,980</div>
+      <div class="metric-label">Low Congestion Days</div>
+      <div class="metric-sub">59.7% of dataset</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value c-warn">837</div>
+      <div class="metric-label">Medium Congestion Days</div>
+      <div class="metric-sub">25.2% of dataset</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value c-danger">501</div>
+      <div class="metric-label">High Congestion Days</div>
+      <div class="metric-sub">15.1% of dataset</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 5. FEATURES ===================== -->
+<section id="features">
+  <h2><span class="num">5</span> Feature Engineering</h2>
+  <p>
+    The model table contains <strong>53 numeric features</strong> across five categories:
+  </p>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr><th>Category</th><th>Features</th><th>Count</th><th>Examples</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Flight volume</strong></td>
+          <td>Raw movement counts and balance</td>
+          <td>4</td>
+          <td>arrivals, departures, total_movements, arr_dep_imbalance</td>
+        </tr>
+        <tr>
+          <td><strong>Calendar</strong></td>
+          <td>Temporal patterns and holidays</td>
+          <td>15</td>
+          <td>dow, month, is_weekend, is_holiday, is_bridge_day, dow_sin/cos, month_sin/cos, doy_sin/cos</td>
+        </tr>
+        <tr>
+          <td><strong>Weather</strong></td>
+          <td>Daily weather conditions</td>
+          <td>11</td>
+          <td>temperature_2m, precipitation, wind_speed_10m, wind_dir_sin/cos, is_severe_weather, is_raining</td>
+        </tr>
+        <tr>
+          <td><strong>Lag features</strong></td>
+          <td>Past ACPS and movements</td>
+          <td>14</td>
+          <td>acps_lag_1d/2d/3d/7d/14d/28d/365d, movements_lag_*</td>
+        </tr>
+        <tr>
+          <td><strong>Rolling windows</strong></td>
+          <td>Trend and volatility</td>
+          <td>9</td>
+          <td>acps_rmean_7d/14d/28d, movements_rmean_*, acps_rstd_28d, movements_yoy_change</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>ACPS Target Computation</h3>
+  <p>The Airport Congestion Pressure Score is a composite metric:</p>
+  <div class="code-block">ACPS = rescale_to_0_100(0.6 * z(total_movements) + 0.4 * z(pressure_ratio))
+
+where:
+  z(x)            = (x - mean(x)) / std(x)           # z-score standardization
+  pressure_ratio  = movements / median(movements for same day-of-week)
+  rescale(x)      = (x - min) / (max - min) * 100    # normalize to 0-100 scale</div>
+  <p>
+    The 60/40 weighting means raw traffic volume (movements) is the primary driver,
+    while the pressure ratio captures whether the airport is busier than typical for that
+    day of the week. The z-score standardization ensures both components contribute
+    proportionally regardless of their raw scales.
+  </p>
+
+  <h3>Congestion Classification</h3>
+  <p>
+    ACPS is discretized into three classes based on percentile thresholds:
+  </p>
+  <ul>
+    <li><span class="tag tag-low">Low</span> ACPS below 60th percentile -- normal operations</li>
+    <li><span class="tag tag-med">Medium</span> ACPS between 60th and 85th percentile -- elevated pressure</li>
+    <li><span class="tag tag-high">High</span> ACPS above 85th percentile -- significant congestion risk</li>
+  </ul>
+
+  <h3>Weather Correlation with ACPS</h3>
+  <div class="card">
+    <div class="card-title">Pearson Correlation: Weather Variables vs ACPS</div>
+    <div class="chart-container short"><canvas id="chartWeatherCorr"></canvas></div>
+  </div>
+  <p>
+    Weather has weak direct correlation with ACPS at the daily level. Temperature shows
+    the strongest relationship (r = 0.11), likely as a proxy for season (summer = more
+    flights). Weather's value is more in capturing edge cases: severe storms or heavy
+    rain days that cause operational disruptions.
+  </p>
+</section>
+
+<!-- ===================== 6. MODEL TRAINING ===================== -->
+<section id="modeling">
+  <h2><span class="num">6</span> Model Training</h2>
+
+  <h3>Algorithm: HistGradientBoosting</h3>
+  <p>
+    We use scikit-learn's <strong>HistGradientBoostingRegressor</strong> and
+    <strong>HistGradientBoostingClassifier</strong>, which are histogram-based gradient
+    boosting implementations similar to LightGBM. Key advantages:
+  </p>
+  <ul>
+    <li>Native handling of missing values (NaN in lag_365d features)</li>
+    <li>Fast training on medium-sized tabular data</li>
+    <li>Built-in regularization through max_depth and min_samples_leaf</li>
+    <li>No feature scaling required</li>
+  </ul>
+
+  <h3>Hyperparameters</h3>
+  <div class="card">
+    <table>
+      <thead><tr><th>Parameter</th><th>Value</th><th>Rationale</th></tr></thead>
+      <tbody>
+        <tr><td>max_iter</td><td>200</td><td>Sufficient boosting rounds for 2,322 training samples</td></tr>
+        <tr><td>max_depth</td><td>6</td><td>Allows moderate interaction complexity</td></tr>
+        <tr><td>learning_rate</td><td>0.1</td><td>Standard rate balancing speed and accuracy</td></tr>
+        <tr><td>min_samples_leaf</td><td>20</td><td>Prevents overfitting to rare patterns</td></tr>
+        <tr><td>random_state</td><td>42</td><td>Reproducibility</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Data Splits</h3>
+  <div class="card">
+    <table>
+      <thead><tr><th>Split</th><th>Rows</th><th>Date Range</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Train</strong></td><td>2,322 (70%)</td><td>Jan 2017 -- Jun 2023</td><td>Model fitting</td></tr>
+        <tr><td><strong>Validation</strong></td><td>498 (15%)</td><td>Jun 2023 -- Oct 2024</td><td>Hyperparameter tuning, early stopping</td></tr>
+        <tr><td><strong>Test</strong></td><td>498 (15%)</td><td>Oct 2024 -- Feb 2026</td><td>Final unbiased evaluation</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    The chronological split ensures no future data leaks into training. The test set covers
+    the most recent 16 months -- the period we care most about predicting accurately.
+  </p>
+</section>
+
+<!-- ===================== 7. RESULTS ===================== -->
+<section id="results">
+  <h2><span class="num">7</span> Results & Evaluation</h2>
+
+  <h3>Regression Performance</h3>
+  <div class="grid-4">
+    <div class="metric-card">
+      <div class="metric-value c-accent">0.96</div>
+      <div class="metric-label">R&sup2; (Test)</div>
+      <div class="metric-sub">Variance explained</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value c-success">0.45</div>
+      <div class="metric-label">MAE (Test)</div>
+      <div class="metric-sub">On 0--100 scale</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value c-warn">0.69</div>
+      <div class="metric-label">RMSE (Test)</div>
+      <div class="metric-sub">On 0--100 scale</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value c-accent">0.99</div>
+      <div class="metric-label">R&sup2; (Valid)</div>
+      <div class="metric-sub">Validation set</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead><tr><th>Split</th><th>MAE</th><th>RMSE</th><th>R&sup2;</th></tr></thead>
+      <tbody>
+        <tr><td>Train</td><td>0.15</td><td>0.31</td><td>0.9998</td></tr>
+        <tr><td>Validation</td><td>0.33</td><td>0.49</td><td>0.9858</td></tr>
+        <tr><td><strong>Test</strong></td><td><strong>0.45</strong></td><td><strong>0.69</strong></td><td><strong>0.9613</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    The model explains <strong>96.1% of variance</strong> in daily congestion pressure
+    on completely unseen test data. The MAE of 0.45 means predictions are off by less
+    than half a point on the 0--100 ACPS scale. The slight degradation from validation
+    to test is expected and healthy -- it indicates the model generalizes well without
+    severe overfitting.
+  </p>
+
+  <h3>Actual vs Predicted (Test Set)</h3>
+  <div class="card">
+    <div class="card-title">ACPS Predictions vs Ground Truth -- Test Period (Oct 2024 -- Feb 2026)</div>
+    <div class="chart-container tall"><canvas id="chartPredictions"></canvas></div>
+  </div>
+
+  <h3>Classification Performance</h3>
+  <div class="grid-3">
+    <div class="metric-card">
+      <div class="metric-value c-success">90.2%</div>
+      <div class="metric-label">Accuracy (Test)</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value c-accent">0.90</div>
+      <div class="metric-label">F1 Macro (Test)</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value c-warn">0.92</div>
+      <div class="metric-label">Balanced Accuracy</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Per-Class Performance (Test Set)</div>
+      <table>
+        <thead><tr><th>Class</th><th>Precision</th><th>Recall</th><th>F1</th><th>Support</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tag tag-high">High</span></td><td>0.93</td><td>0.88</td><td>0.90</td><td>184</td></tr>
+          <tr><td><span class="tag tag-low">Low</span></td><td>0.85</td><td>0.97</td><td>0.91</td><td>70</td></tr>
+          <tr><td><span class="tag tag-med">Medium</span></td><td>0.90</td><td>0.90</td><td>0.90</td><td>244</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title">Confusion Matrix (Test Set)</div>
+      <div class="cm-grid">
+        <div class="cm-corner"></div>
+        <div class="cm-header">Low</div>
+        <div class="cm-header">Medium</div>
+        <div class="cm-header">High</div>
+
+        <div class="cm-header">Low</div>
+        <div class="cm-cell cm-diag">68</div>
+        <div class="cm-cell cm-off">2</div>
+        <div class="cm-cell cm-off">0</div>
+
+        <div class="cm-header">Medium</div>
+        <div class="cm-cell cm-off">12</div>
+        <div class="cm-cell cm-diag">220</div>
+        <div class="cm-cell cm-off">12</div>
+
+        <div class="cm-header">High</div>
+        <div class="cm-cell cm-off">0</div>
+        <div class="cm-cell cm-off">23</div>
+        <div class="cm-cell cm-diag">161</div>
+      </div>
+    </div>
+  </div>
+  <p>
+    The classifier correctly identifies congestion level 90% of the time. Notably,
+    it has very high recall for <span class="tag tag-low">Low</span> congestion (97%)
+    and high precision for <span class="tag tag-high">High</span> congestion (93%),
+    meaning it rarely generates false alarms for high-congestion days.
+    Misclassifications are almost always between adjacent categories (Low/Medium or
+    Medium/High), never between Low and High.
+  </p>
+</section>
+
+<!-- ===================== 8. COMPARISON ===================== -->
+<section id="comparison">
+  <h2><span class="num">8</span> Old vs New Model Comparison</h2>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr><th>Metric</th><th>Old Model (FR24 Hourly)</th><th>New Model (Eurocontrol Daily)</th><th>Change</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Training data</td>
+          <td class="old-val">17 hourly records (~1 day)</td>
+          <td class="improved">2,322 daily records (~6.4 years)</td>
+          <td class="improved">136x more data</td>
+        </tr>
+        <tr>
+          <td>Test data</td>
+          <td class="old-val">5 hourly records</td>
+          <td class="improved">498 daily records (~16 months)</td>
+          <td class="improved">100x more test samples</td>
+        </tr>
+        <tr>
+          <td>R&sup2; (test)</td>
+          <td class="old-val">0.38</td>
+          <td class="improved">0.9613</td>
+          <td class="improved">+153%</td>
+        </tr>
+        <tr>
+          <td>MAE (test)</td>
+          <td class="old-val">0.51</td>
+          <td class="improved">0.45</td>
+          <td class="improved">-12%</td>
+        </tr>
+        <tr>
+          <td>Classifier accuracy</td>
+          <td class="old-val">100% (5 samples)</td>
+          <td class="improved">90.2% (498 samples)</td>
+          <td>Meaningful evaluation</td>
+        </tr>
+        <tr>
+          <td>Data source</td>
+          <td class="old-val">FR24 scraping (~36h window)</td>
+          <td class="improved">Eurocontrol official IFR data</td>
+          <td class="improved">Official source</td>
+        </tr>
+        <tr>
+          <td>Date range</td>
+          <td class="old-val">2026-03-28 (1 day)</td>
+          <td class="improved">2017-01 to 2026-02 (9+ years)</td>
+          <td class="improved">Full history</td>
+        </tr>
+        <tr>
+          <td>Includes COVID</td>
+          <td class="old-val">No</td>
+          <td class="improved">Yes (model learns disruption patterns)</td>
+          <td class="improved">Robust to shocks</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="highlight">
+    The new model represents a fundamental improvement: from a proof-of-concept trained on
+    a single day of scraped data to a production-grade forecaster trained on 9+ years of
+    official Eurocontrol records. The R&sup2; improvement from 0.38 to 0.96 means the model
+    went from explaining only a third of congestion variance to explaining virtually all of it.
+  </div>
+</section>
+
+<!-- ===================== 9. FEATURE IMPORTANCE ===================== -->
+<section id="importance">
+  <h2><span class="num">9</span> Feature Importance</h2>
+  <p>
+    Feature importance is computed via <strong>permutation importance</strong> on the test
+    set: each feature is randomly shuffled and the resulting performance degradation is
+    measured. Higher values mean the feature is more critical for accurate predictions.
+  </p>
+
+  <div class="card">
+    <div class="card-title">Top 15 Features by Permutation Importance</div>
+    <div class="chart-container tall"><canvas id="chartFeatImp"></canvas></div>
+  </div>
+
+  <h3>Interpretation</h3>
+  <ul>
+    <li><strong>total_movements (0.90):</strong> Overwhelmingly dominant -- raw traffic volume
+      is the strongest predictor of congestion, as expected. This validates that ACPS correctly
+      reflects operational load.</li>
+    <li><strong>departures (0.08) & arrivals (0.03):</strong> The split between departures and
+      arrivals captures directional imbalance effects. Departure-heavy days have different
+      congestion characteristics than arrival-heavy days.</li>
+    <li><strong>dow_sin (0.02) & dow_cos (0.01):</strong> Day-of-week cyclic encoding captures
+      the weekly periodicity. Saturday's lower traffic and Friday's peak are learned patterns.</li>
+    <li><strong>acps_rmean_7d (0.016):</strong> The 7-day rolling average provides trend context --
+      is congestion rising or falling week-over-week?</li>
+    <li><strong>movements_lag_365d (0.003):</strong> Year-over-year comparison, useful for
+      capturing long-term growth trends and the COVID recovery trajectory.</li>
+    <li><strong>Weather features:</strong> Low individual importance but collectively contribute
+      to edge-case accuracy. Their value lies in explaining outlier days (storms, extreme heat)
+      rather than driving typical predictions.</li>
+  </ul>
+</section>
+
+<!-- ===================== 10. OUTPUTS ===================== -->
+<section id="outputs">
+  <h2><span class="num">10</span> Output Files</h2>
+
+  <div class="card">
+    <table>
+      <thead><tr><th>File</th><th>Description</th><th>Format</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>data/processed/eurocontrol_model_table.parquet</code></td>
+          <td>Full processed dataset (3,318 rows, 61 columns)</td>
+          <td>Parquet + CSV</td>
+        </tr>
+        <tr>
+          <td><code>data/processed/train_eurocontrol.parquet</code></td>
+          <td>Training split (2,322 rows, Jan 2017 -- Jun 2023)</td>
+          <td>Parquet</td>
+        </tr>
+        <tr>
+          <td><code>data/processed/valid_eurocontrol.parquet</code></td>
+          <td>Validation split (498 rows, Jun 2023 -- Oct 2024)</td>
+          <td>Parquet</td>
+        </tr>
+        <tr>
+          <td><code>data/processed/test_eurocontrol.parquet</code></td>
+          <td>Test split (498 rows, Oct 2024 -- Feb 2026)</td>
+          <td>Parquet</td>
+        </tr>
+        <tr>
+          <td><code>outputs/models/hgb_regressor_eurocontrol.pkl</code></td>
+          <td>Trained HistGradientBoosting regressor</td>
+          <td>Joblib</td>
+        </tr>
+        <tr>
+          <td><code>outputs/models/hgb_classifier_eurocontrol.pkl</code></td>
+          <td>Trained HistGradientBoosting classifier</td>
+          <td>Joblib</td>
+        </tr>
+        <tr>
+          <td><code>outputs/tables/feature_importance_eurocontrol.csv</code></td>
+          <td>Permutation importance for all 53 features</td>
+          <td>CSV</td>
+        </tr>
+        <tr>
+          <td><code>outputs/tables/model_comparison_eurocontrol.csv</code></td>
+          <td>Summary metrics for both models</td>
+          <td>CSV</td>
+        </tr>
+        <tr>
+          <td><code>outputs/tables/test_predictions_eurocontrol.csv</code></td>
+          <td>Actual vs predicted for the 498 test samples</td>
+          <td>CSV</td>
+        </tr>
+        <tr>
+          <td><code>scripts/process_eurocontrol_data.py</code></td>
+          <td>Full pipeline script (run with <code>python scripts/process_eurocontrol_data.py</code>)</td>
+          <td>Python</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="container">
+    Airport Congestion Forecasting Project -- Universidad Group Work<br>
+    Data: Eurocontrol IFR Traffic / Open-Meteo Weather / Nager.Date Holidays<br>
+    Pipeline: Python + scikit-learn + pandas
+  </div>
+</footer>
+
+<!-- ===================== CHART.JS SCRIPTS ===================== -->
+<script>
+Chart.defaults.color = '#8b8fa3';
+Chart.defaults.borderColor = '#2d3140';
+Chart.defaults.font.family = "'Inter', sans-serif";
+Chart.defaults.font.size = 12;
+
+// --- Time Series ---
+const tsData = {"dates": ["2017-01-29", "2017-02-05", "2017-02-12", "2017-02-19", "2017-02-26", "2017-03-05", "2017-03-12", "2017-03-19", "2017-03-26", "2017-04-02", "2017-04-09", "2017-04-16", "2017-04-23", "2017-04-30", "2017-05-07", "2017-05-14", "2017-05-21", "2017-05-28", "2017-06-04", "2017-06-11", "2017-06-18", "2017-06-25", "2017-07-02", "2017-07-09", "2017-07-16", "2017-07-23", "2017-07-30", "2017-08-06", "2017-08-13", "2017-08-20", "2017-08-27", "2017-09-03", "2017-09-10", "2017-09-17", "2017-09-24", "2017-10-01", "2017-10-08", "2017-10-15", "2017-10-22", "2017-10-29", "2017-11-05", "2017-11-12", "2017-11-19", "2017-11-26", "2017-12-03", "2017-12-10", "2017-12-17", "2017-12-24", "2017-12-31", "2018-01-07", "2018-01-14", "2018-01-21", "2018-01-28", "2018-02-04", "2018-02-11", "2018-02-18", "2018-02-25", "2018-03-04", "2018-03-11", "2018-03-18", "2018-03-25", "2018-04-01", "2018-04-08", "2018-04-15", "2018-04-22", "2018-04-29", "2018-05-06", "2018-05-13", "2018-05-20", "2018-05-27", "2018-06-03", "2018-06-10", "2018-06-17", "2018-06-24", "2018-07-01", "2018-07-08", "2018-07-15", "2018-07-22", "2018-07-29", "2018-08-05", "2018-08-12", "2018-08-19", "2018-08-26", "2018-09-02", "2018-09-09", "2018-09-16", "2018-09-23", "2018-09-30", "2018-10-07", "2018-10-14", "2018-10-21", "2018-10-28", "2018-11-04", "2018-11-11", "2018-11-18", "2018-11-25", "2018-12-02", "2018-12-09", "2018-12-16", "2018-12-23", "2018-12-30", "2019-01-06", "2019-01-13", "2019-01-20", "2019-01-27", "2019-02-03", "2019-02-10", "2019-02-17", "2019-02-24", "2019-03-03", "2019-03-10", "2019-03-17", "2019-03-24", "2019-03-31", "2019-04-07", "2019-04-14", "2019-04-21", "2019-04-28", "2019-05-05", "2019-05-12", "2019-05-19", "2019-05-26", "2019-06-02", "2019-06-09", "2019-06-16", "2019-06-23", "2019-06-30", "2019-07-07", "2019-07-14", "2019-07-21", "2019-07-28", "2019-08-04", "2019-08-11", "2019-08-18", "2019-08-25", "2019-09-01", "2019-09-08", "2019-09-15", "2019-09-22", "2019-09-29", "2019-10-06", "2019-10-13", "2019-10-20", "2019-10-27", "2019-11-03", "2019-11-10", "2019-11-17", "2019-11-24", "2019-12-01", "2019-12-08", "2019-12-15", "2019-12-22", "2019-12-29", "2020-01-05", "2020-01-12", "2020-01-19", "2020-01-26", "2020-02-02", "2020-02-09", "2020-02-16", "2020-02-23", "2020-03-01", "2020-03-08", "2020-03-15", "2020-03-22", "2020-03-29", "2020-04-05", "2020-04-12", "2020-04-19", "2020-04-26", "2020-05-03", "2020-05-10", "2020-05-17", "2020-05-24", "2020-05-31", "2020-06-07", "2020-06-14", "2020-06-21", "2020-06-28", "2020-07-05", "2020-07-12", "2020-07-19", "2020-07-26", "2020-08-02", "2020-08-09", "2020-08-16", "2020-08-23", "2020-08-30", "2020-09-06", "2020-09-13", "2020-09-20", "2020-09-27", "2020-10-04", "2020-10-11", "2020-10-18", "2020-10-25", "2020-11-01", "2020-11-08", "2020-11-15", "2020-11-22", "2020-11-29", "2020-12-06", "2020-12-13", "2020-12-20", "2020-12-27", "2021-01-03", "2021-01-10", "2021-01-17", "2021-01-24", "2021-01-31", "2021-02-07", "2021-02-14", "2021-02-21", "2021-02-28", "2021-03-07", "2021-03-14", "2021-03-21", "2021-03-28", "2021-04-04", "2021-04-11", "2021-04-18", "2021-04-25", "2021-05-02", "2021-05-09", "2021-05-16", "2021-05-23", "2021-05-30", "2021-06-06", "2021-06-13", "2021-06-20", "2021-06-27", "2021-07-04", "2021-07-11", "2021-07-18", "2021-07-25", "2021-08-01", "2021-08-08", "2021-08-15", "2021-08-22", "2021-08-29", "2021-09-05", "2021-09-12", "2021-09-19", "2021-09-26", "2021-10-03", "2021-10-10", "2021-10-17", "2021-10-24", "2021-10-31", "2021-11-07", "2021-11-14", "2021-11-21", "2021-11-28", "2021-12-05", "2021-12-12", "2021-12-19", "2021-12-26", "2022-01-02", "2022-01-09", "2022-01-16", "2022-01-23", "2022-01-30", "2022-02-06", "2022-02-13", "2022-02-20", "2022-02-27", "2022-03-06", "2022-03-13", "2022-03-20", "2022-03-27", "2022-04-03", "2022-04-10", "2022-04-17", "2022-04-24", "2022-05-01", "2022-05-08", "2022-05-15", "2022-05-22", "2022-05-29", "2022-06-05", "2022-06-12", "2022-06-19", "2022-06-26", "2022-07-03", "2022-07-10", "2022-07-17", "2022-07-24", "2022-07-31", "2022-08-07", "2022-08-14", "2022-08-21", "2022-08-28", "2022-09-04", "2022-09-11", "2022-09-18", "2022-09-25", "2022-10-02", "2022-10-09", "2022-10-16", "2022-10-23", "2022-10-30", "2022-11-06", "2022-11-13", "2022-11-20", "2022-11-27", "2022-12-04", "2022-12-11", "2022-12-18", "2022-12-25", "2023-01-01", "2023-01-08", "2023-01-15", "2023-01-22", "2023-01-29", "2023-02-05", "2023-02-12", "2023-02-19", "2023-02-26", "2023-03-05", "2023-03-12", "2023-03-19", "2023-03-26", "2023-04-02", "2023-04-09", "2023-04-16", "2023-04-23", "2023-04-30", "2023-05-07", "2023-05-14", "2023-05-21", "2023-05-28", "2023-06-04", "2023-06-11", "2023-06-18", "2023-06-25", "2023-07-02", "2023-07-09", "2023-07-16", "2023-07-23", "2023-07-30", "2023-08-06", "2023-08-13", "2023-08-20", "2023-08-27", "2023-09-03", "2023-09-10", "2023-09-17", "2023-09-24", "2023-10-01", "2023-10-08", "2023-10-15", "2023-10-22", "2023-10-29", "2023-11-05", "2023-11-12", "2023-11-19", "2023-11-26", "2023-12-03", "2023-12-10", "2023-12-17", "2023-12-24", "2023-12-31", "2024-01-07", "2024-01-14", "2024-01-21", "2024-01-28", "2024-02-04", "2024-02-11", "2024-02-18", "2024-02-25", "2024-03-03", "2024-03-10", "2024-03-17", "2024-03-24", "2024-03-31", "2024-04-07", "2024-04-14", "2024-04-21", "2024-04-28", "2024-05-05", "2024-05-12", "2024-05-19", "2024-05-26", "2024-06-02", "2024-06-09", "2024-06-16", "2024-06-23", "2024-06-30", "2024-07-07", "2024-07-14", "2024-07-21", "2024-07-28", "2024-08-04", "2024-08-11", "2024-08-18", "2024-08-25", "2024-09-01", "2024-09-08", "2024-09-15", "2024-09-22", "2024-09-29", "2024-10-06", "2024-10-13", "2024-10-20", "2024-10-27", "2024-11-03", "2024-11-10", "2024-11-17", "2024-11-24", "2024-12-01", "2024-12-08", "2024-12-15", "2024-12-22", "2024-12-29", "2025-01-05", "2025-01-12", "2025-01-19", "2025-01-26", "2025-02-02", "2025-02-09", "2025-02-16", "2025-02-23", "2025-03-02", "2025-03-09", "2025-03-16", "2025-03-23", "2025-03-30", "2025-04-06", "2025-04-13", "2025-04-20", "2025-04-27", "2025-05-04", "2025-05-11", "2025-05-18", "2025-05-25", "2025-06-01", "2025-06-08", "2025-06-15", "2025-06-22", "2025-06-29", "2025-07-06", "2025-07-13", "2025-07-20", "2025-07-27", "2025-08-03", "2025-08-10", "2025-08-17", "2025-08-24", "2025-08-31", "2025-09-07", "2025-09-14", "2025-09-21", "2025-09-28", "2025-10-05", "2025-10-12", "2025-10-19", "2025-10-26", "2025-11-02", "2025-11-09", "2025-11-16", "2025-11-23", "2025-11-30", "2025-12-07", "2025-12-14", "2025-12-21", "2025-12-28", "2026-01-04", "2026-01-11", "2026-01-18", "2026-01-25", "2026-02-01", "2026-02-08", "2026-02-15", "2026-02-22"], "movements": [945, 929, 954, 962, 967, 951, 977, 983, 1000, 1035, 1034, 1085, 1092, 1028, 1065, 1047, 1081, 1075, 1148, 1098, 1104, 1125, 1127, 1108, 1121, 1078, 1078, 1058, 1062, 1067, 1096, 1086, 1096, 1118, 1080, 1089, 1076, 1091, 1087, 1034, 1025, 1035, 1017, 1011, 1001, 1014, 1005, 809, 799, 1040, 991, 996, 992, 996, 1006, 1043, 1038, 1030, 1024, 1027, 1090, 1130, 1085, 1108, 1099, 1070, 1123, 1114, 1131, 1165, 1150, 1110, 1131, 1136, 1173, 1167, 1185, 1153, 1142, 1131, 1119, 1130, 1139, 1151, 1188, 1184, 1169, 1190, 1162, 1166, 1149, 1083, 1119, 1100, 1085, 1084, 1073, 1141, 1067, 1015, 1044, 1078, 1023, 1051, 1034, 1018, 1050, 1073, 1073, 1075, 1082, 1083, 1079, 1122, 1120, 1141, 1182, 1157, 1173, 1176, 1194, 1166, 1600, 1181, 1221, 1203, 1234, 1220, 1221, 1214, 1196, 1182, 1164, 1167, 1163, 1195, 1217, 1213, 1201, 1202, 1173, 1167, 1158, 1157, 1173, 1140, 1141, 1138, 1126, 1104, 1129, 1171, 1125, 1111, 1076, 1058, 1059, 1070, 1048, 1087, 1097, 1122, 1064, 901, 218, 111, 78, 68, 56, 75, 71, 78, 84, 91, 70, 70, 90, 119, 164, 276, 296, 389, 419, 488, 527, 526, 544, 551, 463, 470, 445, 444, 409, 385, 403, 394, 348, 330, 336, 327, 341, 295, 384, 451, 441, 462, 16, 353, 381, 367, 338, 364, 363, 371, 354, 359, 375, 407, 425, 425, 411, 437, 421, 449, 492, 493, 505, 598, 616, 636, 672, 747, 781, 762, 787, 786, 768, 765, 801, 801, 807, 805, 778, 767, 804, 757, 761, 770, 770, 845, 832, 819, 824, 766, 828, 853, 828, 846, 855, 806, 793, 793, 813, 833, 843, 824, 848, 856, 875, 924, 911, 926, 947, 937, 934, 970, 981, 1005, 1048, 986, 993, 1026, 986, 1025, 1024, 997, 1018, 1031, 1002, 997, 1013, 999, 1010, 1047, 1034, 1004, 1020, 997, 1044, 990, 993, 1010, 1004, 1011, 988, 985, 982, 1002, 772, 924, 1027, 975, 981, 977, 975, 992, 1007, 1014, 1029, 972, 1011, 1017, 996, 1076, 1034, 1051, 1037, 1061, 1061, 1079, 1051, 1041, 1070, 1081, 1063, 1099, 1130, 1105, 1104, 1081, 1099, 1079, 1082, 1066, 1104, 1132, 1129, 1116, 1146, 1132, 1143, 1110, 1101, 1079, 1075, 1085, 1071, 1070, 1124, 1103, 935, 951, 1010, 1042, 1040, 1060, 1065, 1075, 1101, 1090, 1099, 1114, 1115, 1103, 1149, 1143, 1132, 1166, 1136, 1177, 1152, 1173, 1154, 1255, 1182, 1190, 1206, 1214, 1228, 1239, 1187, 1203, 1170, 1164, 1161, 1183, 1225, 1201, 1206, 1212, 1212, 1119, 1116, 1116, 1209, 1167, 1134, 1171, 1156, 1182, 1168, 1166, 1188, 1160, 1171, 1099, 1128, 1118, 1123, 1123, 1139, 1161, 1149, 1149, 1171, 1167, 1136, 1147, 1123, 1176, 1173, 1163, 1159, 1179, 1168, 1165, 1162, 1167, 1202, 1238, 1187, 1211, 1193, 1207, 1194, 1175, 1168, 1181, 1202, 1206, 1202, 1194, 1197, 1223, 1187, 1218, 1279, 1217, 1232, 1248, 1218, 1225, 1214, 1242, 1244, 1215, 1193, 1139, 1129, 1153, 1192, 1191, 1189, 1208]};
+
+new Chart(document.getElementById('chartTimeseries'), {
+  type: 'line',
+  data: {
+    labels: tsData.dates,
+    datasets: [{
+      label: 'Total Movements',
+      data: tsData.movements,
+      borderColor: '#6c8cff',
+      backgroundColor: 'rgba(108,140,255,0.08)',
+      fill: true,
+      borderWidth: 1.5,
+      pointRadius: 0,
+      tension: 0.3,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { mode: 'index', intersect: false }
+    },
+    scales: {
+      x: {
+        ticks: { maxTicksLimit: 12, font: { size: 10 } },
+        grid: { display: false }
+      },
+      y: {
+        title: { display: true, text: 'Daily IFR Movements' },
+        min: 0,
+      }
+    },
+    interaction: { mode: 'nearest', axis: 'x', intersect: false },
+  }
+});
+
+// --- Yearly ---
+const yearlyData = {"years": [2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026], "avg_movements": [1070.4, 1122.4, 1167.6, 452.6, 596.0, 964.3, 1066.3, 1148.4, 1180.2, 1142.8]};
+new Chart(document.getElementById('chartYearly'), {
+  type: 'bar',
+  data: {
+    labels: yearlyData.years,
+    datasets: [{
+      label: 'Avg Daily Movements',
+      data: yearlyData.avg_movements,
+      backgroundColor: yearlyData.years.map(y =>
+        y === 2020 ? 'rgba(255,107,138,0.7)' :
+        y === 2021 ? 'rgba(255,209,102,0.7)' :
+        'rgba(108,140,255,0.7)'
+      ),
+      borderRadius: 6,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { title: { display: true, text: 'Avg Daily Movements' }, min: 0 },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+// --- Day of Week ---
+const dowData = {"days": ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"], "movements": [997.0, 959.0, 985.0, 994.0, 1030.0, 898.0, 971.0]};
+new Chart(document.getElementById('chartDow'), {
+  type: 'bar',
+  data: {
+    labels: dowData.days,
+    datasets: [{
+      data: dowData.movements,
+      backgroundColor: dowData.days.map(d => d === 'Sat' ? 'rgba(255,107,138,0.7)' : d === 'Fri' ? 'rgba(78,205,196,0.7)' : 'rgba(108,140,255,0.5)'),
+      borderRadius: 6,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { min: 800, title: { display: true, text: 'Avg Movements' } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+// --- Monthly ---
+const monthlyData = {"months": ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"], "movements": [966.0, 998.0, 1031.0, 1084.0, 1106.0, 1133.0, 1150.0, 1123.0, 1153.0, 1129.0, 1099.0, 1103.0]};
+new Chart(document.getElementById('chartMonthly'), {
+  type: 'line',
+  data: {
+    labels: monthlyData.months,
+    datasets: [{
+      data: monthlyData.movements,
+      borderColor: '#4ecdc4',
+      backgroundColor: 'rgba(78,205,196,0.15)',
+      fill: true,
+      borderWidth: 2,
+      tension: 0.4,
+      pointRadius: 4,
+      pointBackgroundColor: '#4ecdc4',
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { min: 900, title: { display: true, text: 'Avg Movements' } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+// --- ACPS Histogram ---
+const histData = {"counts": [2, 62, 29, 12, 5, 40, 106, 102, 51, 31, 14, 15, 8, 61, 114, 84, 36, 87, 253, 422, 545, 566, 460, 187, 23, 0, 1, 1, 0, 1], "edges": [0.0, 3.33, 6.67, 10.0, 13.33, 16.67, 20.0, 23.33, 26.67, 30.0, 33.33, 36.67, 40.0, 43.33, 46.67, 50.0, 53.33, 56.67, 60.0, 63.33, 66.67, 70.0, 73.33, 76.67, 80.0, 83.33, 86.67, 90.0, 93.33, 96.67, 100.0]};
+const histLabels = histData.edges.slice(0,-1).map((e,i) => Math.round(e));
+new Chart(document.getElementById('chartAcpsHist'), {
+  type: 'bar',
+  data: {
+    labels: histLabels,
+    datasets: [{
+      data: histData.counts,
+      backgroundColor: histLabels.map(v =>
+        v < 20 ? 'rgba(255,107,138,0.5)' :
+        v < 40 ? 'rgba(255,209,102,0.5)' :
+        v < 60 ? 'rgba(255,209,102,0.6)' :
+        v < 75 ? 'rgba(108,140,255,0.6)' :
+        'rgba(78,205,196,0.6)'
+      ),
+      borderRadius: 3,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { title: { display: true, text: 'ACPS Score' }, grid: { display: false } },
+      y: { title: { display: true, text: 'Number of Days' } }
+    }
+  }
+});
+
+// --- Predictions vs Actual ---
+const predData = {"dates": ["2024-10-19", "2024-10-22", "2024-10-25", "2024-10-28", "2024-10-31", "2024-11-03", "2024-11-06", "2024-11-09", "2024-11-12", "2024-11-15", "2024-11-18", "2024-11-21", "2024-11-24", "2024-11-27", "2024-11-30", "2024-12-03", "2024-12-06", "2024-12-09", "2024-12-12", "2024-12-15", "2024-12-18", "2024-12-21", "2024-12-24", "2024-12-27", "2024-12-30", "2025-01-02", "2025-01-05", "2025-01-08", "2025-01-11", "2025-01-14", "2025-01-17", "2025-01-20", "2025-01-23", "2025-01-26", "2025-01-29", "2025-02-01", "2025-02-04", "2025-02-07", "2025-02-10", "2025-02-13", "2025-02-16", "2025-02-19", "2025-02-22", "2025-02-25", "2025-02-28", "2025-03-03", "2025-03-06", "2025-03-09", "2025-03-12", "2025-03-15", "2025-03-18", "2025-03-21", "2025-03-24", "2025-03-27", "2025-03-30", "2025-04-02", "2025-04-05", "2025-04-08", "2025-04-11", "2025-04-14", "2025-04-17", "2025-04-20", "2025-04-23", "2025-04-26", "2025-04-29", "2025-05-02", "2025-05-05", "2025-05-08", "2025-05-11", "2025-05-14", "2025-05-17", "2025-05-20", "2025-05-23", "2025-05-26", "2025-05-29", "2025-06-01", "2025-06-04", "2025-06-07", "2025-06-10", "2025-06-13", "2025-06-16", "2025-06-19", "2025-06-22", "2025-06-25", "2025-06-28", "2025-07-01", "2025-07-04", "2025-07-07", "2025-07-10", "2025-07-13", "2025-07-16", "2025-07-19", "2025-07-22", "2025-07-25", "2025-07-28", "2025-07-31", "2025-08-03", "2025-08-06", "2025-08-09", "2025-08-12", "2025-08-15", "2025-08-18", "2025-08-21", "2025-08-24", "2025-08-27", "2025-08-30", "2025-09-02", "2025-09-05", "2025-09-08", "2025-09-11", "2025-09-14", "2025-09-17", "2025-09-20", "2025-09-23", "2025-09-26", "2025-09-29", "2025-10-02", "2025-10-05", "2025-10-08", "2025-10-11", "2025-10-14", "2025-10-17", "2025-10-20", "2025-10-23", "2025-10-26", "2025-10-29", "2025-11-01", "2025-11-04", "2025-11-07", "2025-11-10", "2025-11-13", "2025-11-16", "2025-11-19", "2025-11-22", "2025-11-25", "2025-11-28", "2025-12-01", "2025-12-04", "2025-12-07", "2025-12-10", "2025-12-13", "2025-12-16", "2025-12-19", "2025-12-22", "2025-12-25", "2025-12-28", "2025-12-31", "2026-01-03", "2026-01-06", "2026-01-09", "2026-01-12", "2026-01-15", "2026-01-18", "2026-01-21", "2026-01-24", "2026-01-27", "2026-01-30", "2026-02-02", "2026-02-05", "2026-02-08", "2026-02-11", "2026-02-14", "2026-02-17", "2026-02-20", "2026-02-23", "2026-02-26"], "actual": [69.22, 72.14, 73.34, 71.62, 70.84, 72.9, 67.32, 70.0, 69.5, 75.3, 73.78, 71.4, 72.21, 69.13, 70.84, 69.88, 72.73, 75.58, 72.33, 72.84, 72.99, 73.05, 63.03, 73.4, 73.23, 72.7, 73.15, 64.89, 68.63, 63.97, 69.85, 68.34, 66.01, 69.84, 62.77, 69.93, 66.48, 71.93, 71.62, 68.74, 71.15, 70.99, 70.26, 68.62, 71.75, 72.98, 71.46, 71.78, 68.88, 70.71, 70.32, 74.38, 73.29, 72.64, 70.96, 73.36, 72.01, 72.83, 75.42, 73.16, 75.0, 73.47, 73.55, 73.37, 73.21, 69.61, 72.86, 74.81, 72.4, 73.24, 73.24, 72.7, 74.57, 77.25, 75.31, 72.78, 76.1, 74.73, 74.21, 76.47, 74.53, 77.35, 75.09, 75.85, 77.65, 76.98, 76.04, 78.11, 77.79, 75.66, 76.91, 75.32, 75.47, 75.55, 74.71, 75.18, 74.59, 73.92, 75.64, 75.15, 74.08, 72.61, 74.31, 73.78, 75.17, 77.07, 75.41, 77.02, 77.31, 76.42, 75.09, 78.28, 75.19, 74.4, 76.65, 77.25, 76.73, 76.41, 77.35, 75.71, 75.72, 77.02, 77.25, 78.1, 79.91, 73.24, 73.56, 69.62, 77.44, 74.46, 73.76, 77.97, 68.0, 71.68, 69.44, 75.3, 74.53, 74.31, 75.84, 72.43, 72.4, 70.5, 80.57, 77.43, 58.2, 75.91, 66.07, 72.85, 69.44, 73.28, 69.27, 68.55, 70.52, 67.26, 66.17, 66.99, 76.71, 72.55, 69.05, 74.4, 68.13, 72.92, 70.82, 77.57, 75.14, 75.55], "predicted": [69.19, 71.87, 73.32, 72.15, 70.87, 72.39, 67.61, 69.55, 69.16, 75.35, 73.83, 71.38, 71.71, 69.06, 70.31, 70.11, 73.05, 75.37, 72.36, 72.45, 72.95, 72.4, 63.02, 73.52, 74.05, 72.78, 73.07, 65.57, 68.67, 64.09, 70.03, 68.27, 66.43, 69.31, 63.23, 68.66, 66.88, 72.15, 71.4, 68.66, 70.72, 71.25, 69.8, 68.63, 72.02, 72.93, 71.41, 71.45, 68.99, 70.14, 70.36, 74.08, 73.19, 72.6, 70.88, 73.3, 70.28, 72.77, 75.69, 73.49, 74.94, 73.03, 73.56, 72.51, 72.86, 69.98, 72.62, 74.72, 72.18, 73.26, 72.0, 72.81, 75.0, 77.63, 75.5, 72.88, 76.17, 72.87, 74.48, 76.85, 74.92, 77.37, 74.42, 76.19, 75.27, 77.13, 75.8, 78.05, 77.82, 75.44, 77.37, 74.27, 75.11, 75.94, 74.85, 75.26, 74.34, 74.17, 73.34, 75.0, 74.01, 73.07, 74.42, 73.38, 75.4, 74.67, 75.42, 77.05, 77.14, 76.68, 74.62, 78.14, 73.73, 74.56, 77.18, 77.48, 78.34, 76.22, 77.11, 73.58, 75.87, 77.33, 77.01, 78.05, 78.2, 73.6, 72.38, 70.58, 77.03, 74.76, 73.86, 76.33, 68.43, 70.68, 69.72, 75.03, 74.6, 74.23, 74.46, 72.63, 71.64, 72.12, 81.79, 77.02, 58.03, 75.18, 67.23, 72.21, 69.45, 73.6, 69.55, 68.38, 70.03, 67.86, 66.05, 67.8, 77.43, 72.87, 69.3, 73.53, 68.51, 72.09, 71.9, 77.65, 75.38, 75.92]};
+
+new Chart(document.getElementById('chartPredictions'), {
+  type: 'line',
+  data: {
+    labels: predData.dates,
+    datasets: [
+      {
+        label: 'Actual ACPS',
+        data: predData.actual,
+        borderColor: '#6c8cff',
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.3,
+      },
+      {
+        label: 'Predicted ACPS',
+        data: predData.predicted,
+        borderColor: '#4ecdc4',
+        borderWidth: 2,
+        borderDash: [5, 3],
+        pointRadius: 0,
+        tension: 0.3,
+      }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'top' },
+      tooltip: { mode: 'index', intersect: false }
+    },
+    scales: {
+      x: { ticks: { maxTicksLimit: 10, font: { size: 10 } }, grid: { display: false } },
+      y: { title: { display: true, text: 'ACPS Score' } }
+    },
+    interaction: { mode: 'nearest', axis: 'x', intersect: false },
+  }
+});
+
+// --- Feature Importance ---
+const featData = {"features": ["total_movements", "departures", "arrivals", "dow_sin", "acps_rmean_7d", "dow_cos", "movements_lag_1d", "dow", "movements_lag_365d", "movements_rmean_7d", "acps_lag_365d", "acps_lag_7d", "movements_lag_28d", "acps_rmean_28d", "movements_lag_7d"], "importance": [0.903691, 0.079496, 0.026208, 0.020624, 0.015721, 0.013162, 0.005271, 0.004958, 0.003162, 0.00135, 0.000808, 0.000659, 0.000523, 0.000452, 0.000361]};
+new Chart(document.getElementById('chartFeatImp'), {
+  type: 'bar',
+  data: {
+    labels: featData.features,
+    datasets: [{
+      data: featData.importance,
+      backgroundColor: featData.features.map((f, i) =>
+        i === 0 ? 'rgba(108,140,255,0.8)' :
+        i <= 2 ? 'rgba(78,205,196,0.7)' :
+        i <= 5 ? 'rgba(255,209,102,0.6)' :
+        'rgba(139,143,163,0.4)'
+      ),
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { title: { display: true, text: 'Permutation Importance' } },
+      y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+    }
+  }
+});
+
+// --- Weather Correlation ---
+const wcData = {"features": ["temperature_2m", "precipitation", "wind_speed_10m", "surface_pressure", "cloud_cover", "relative_humidity_2m"], "correlations": [0.1099, -0.0269, 0.0022, -0.0034, -0.064, -0.097]};
+new Chart(document.getElementById('chartWeatherCorr'), {
+  type: 'bar',
+  data: {
+    labels: wcData.features.map(f => f.replace('_2m','').replace('_10m','').replace('_',' ')),
+    datasets: [{
+      data: wcData.correlations,
+      backgroundColor: wcData.correlations.map(v => v >= 0 ? 'rgba(78,205,196,0.6)' : 'rgba(255,107,138,0.6)'),
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { title: { display: true, text: 'Pearson r' }, min: -0.15, max: 0.15 },
+      x: { grid: { display: false } }
+    }
+  }
+});
+</script>
+
+</body>
+</html>

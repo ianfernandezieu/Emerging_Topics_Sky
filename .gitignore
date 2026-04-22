@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Environment variables
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data (raw kept local only - use cache/download)
+data/raw/
+data/intermediate/
+# data/processed/ is committed so teammates can reproduce results without re-fetching APIs
+
+# Model artifacts are committed so teammates can load trained models directly
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Keep directory structure
+!data/raw/.gitkeep
+!data/intermediate/.gitkeep
+!data/processed/.gitkeep
+!outputs/models/.gitkeep
+!outputs/figures/.gitkeep
+!outputs/tables/.gitkeep

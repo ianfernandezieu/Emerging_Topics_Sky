@@ -1,0 +1,7 @@
+model,type,mae,rmse,r2
+Same Hour Prev Day,baseline,0.1302,0.1302,
+HGB Regressor,ml,0.5124,0.8808,0.3756
+"ARIMA(0, 0, 2)",baseline,0.7927,1.1031,0.0207
+Training Mean,baseline,0.9375,1.3315,-0.4268
+Hourly Average,baseline,0.9589,1.3327,-0.4294
+Previous Hour,baseline,1.2133,1.5818,-1.0139

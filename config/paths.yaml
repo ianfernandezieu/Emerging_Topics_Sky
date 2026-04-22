@@ -1,0 +1,15 @@
+# Path configuration - all relative to project root
+raw: "data/raw"
+intermediate: "data/intermediate"
+processed: "data/processed"
+figures: "outputs/figures"
+tables: "outputs/tables"
+models: "outputs/models"
+reports: "outputs/reports"
+
+# Raw subdirectories
+raw_opensky: "data/raw/opensky"
+raw_weather: "data/raw/open_meteo"
+raw_flightradar: "data/raw/flightradar/live_snapshots"
+raw_airports: "data/raw/ourairports"
+raw_holidays: "data/raw/holidays"
