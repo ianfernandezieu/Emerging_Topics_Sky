@@ -289,7 +289,7 @@ class Forecast(BaseModel):
 
 class TodayResponse(BaseModel):
     today_date: str
-    today_actual_acps: float
+    today_actual_acps: float | None = None
     today_predicted_acps: float
     today_classification: str
     today_movements: int
@@ -349,30 +349,89 @@ class MetricsResponse(BaseModel):
 
 @app.get("/api/today", response_model=TodayResponse)
 def today() -> TodayResponse:
+    """Today's prediction for the actual current calendar day.
+
+    If today is within the dataset → return actual + predicted.
+    If today is past the dataset (the common case during the demo window) →
+    predict with auto-computed assumptions so the number matches the
+    Forecast-Any-Date card when it's set to today's date.
+    """
     s = _require_state()
     df = s.model_table
-    test = df[df["date"] >= TEST_SPLIT_DATE].copy()
-    today_row = test.iloc[-1]
-    today_date = pd.Timestamp(today_row["date"])
+    last_data_date = pd.Timestamp(df["date"].max())
+    today_date = pd.Timestamp.today().normalize()
 
-    X_today = today_row[s.feature_names].fillna(0).to_frame().T
-    pred_today = float(s.regressor.predict(X_today)[0])
+    in_dataset = today_date <= last_data_date
 
+    if in_dataset:
+        row = df[df["date"] == today_date].iloc[0]
+        X = row[s.feature_names].fillna(0).to_frame().T
+        pred_today = float(s.regressor.predict(X)[0])
+        actual_today = round(float(row["acps"]), 2)
+        movements_today = int(row["total_movements"])
+        is_hol = bool(row["is_holiday"])
+        is_bridge = bool(row["is_bridge_day"])
+        rolling_7d = float(row["acps_rmean_7d"])
+    else:
+        # Auto-compute like /api/future-forecast for any 2026 day after the dataset ends.
+        dow = int(today_date.dayofweek)
+        month = int(today_date.month)
+        iso = today_date.strftime("%Y-%m-%d")
+        is_hol = iso in SPANISH_HOLIDAYS_2026
+        is_bridge = _is_bridge_day_2026(today_date)
+
+        post_recovery_cutoff = pd.Timestamp("2023-01-01")
+        mask = (
+            (df["dow"] == dow)
+            & (df["month"] == month)
+            & (df["date"] >= post_recovery_cutoff)
+        )
+        hits = df[mask]
+        movements_today = int(hits["total_movements"].mean()) if len(hits) >= 3 else int(df["total_movements"].tail(30).mean())
+        rolling_7d = float(df["acps"].tail(7).mean())
+
+        row_df = _build_feature_row(
+            s,
+            target_date=today_date,
+            total_movements=movements_today,
+            weather_preset="clear",
+            is_holiday=is_hol,
+            is_bridge_day=is_bridge,
+            rolling_acps_7d=rolling_7d,
+        )
+        pred_today = float(s.regressor.predict(row_df)[0])
+        actual_today = None  # no actual for future dates
+
+    # Next 3 days — use the same synthetic-row logic so values are consistent.
     forecasts: list[Forecast] = []
     for d_ahead in (1, 2, 3):
         target = today_date + pd.Timedelta(days=d_ahead)
+        iso_t = target.strftime("%Y-%m-%d")
+        t_is_hol = (target.year == 2026 and iso_t in SPANISH_HOLIDAYS_2026) or False
+        t_is_bridge = (target.year == 2026 and _is_bridge_day_2026(target)) or False
+
+        # Movements assumption for this future day
+        post_recovery_cutoff = pd.Timestamp("2023-01-01")
+        m = (
+            (df["dow"] == int(target.dayofweek))
+            & (df["month"] == int(target.month))
+            & (df["date"] >= post_recovery_cutoff)
+        )
+        t_hits = df[m]
+        t_movements = int(t_hits["total_movements"].mean()) if len(t_hits) >= 3 else movements_today
+
         row = _build_feature_row(
             s,
             target_date=target,
-            total_movements=int(today_row["total_movements"]),
+            total_movements=t_movements,
             weather_preset="clear",
-            is_holiday=bool(today_row["is_holiday"]),
-            is_bridge_day=bool(today_row["is_bridge_day"]),
-            rolling_acps_7d=float(today_row["acps_rmean_7d"]),
+            is_holiday=t_is_hol,
+            is_bridge_day=t_is_bridge,
+            rolling_acps_7d=rolling_7d,
         )
         p = float(s.regressor.predict(row)[0])
         forecasts.append(Forecast(
-            date=target.strftime("%Y-%m-%d"),
+            date=iso_t,
             day_label=target.strftime("%a %b %d").upper(),
             predicted_acps=round(p, 2),
             classification=_class_for_acps(p),
@@ -382,19 +441,19 @@ def today() -> TodayResponse:
 
     return TodayResponse(
         today_date=today_date.strftime("%Y-%m-%d"),
-        today_actual_acps=round(float(today_row["acps"]), 2),
+        today_actual_acps=actual_today,
         today_predicted_acps=round(pred_today, 2),
         today_classification=_class_for_acps(pred_today),
-        today_movements=int(today_row["total_movements"]),
+        today_movements=movements_today,
         today_weather=dict(
-            # Presentation-day override: demo is shown 2026-04-23 (warm spring day in Madrid),
-            # last Eurocontrol row is 2026-02-28 (11°C winter value). We display today's
-            # ambient temperature and keep the other fields as the last data point recorded.
+            # Presentation-day override: demo is typically shown in warm months.
+            # We keep a sensible ambient temperature; the rest mirrors the "clear"
+            # assumption used everywhere else for future dates.
             temperature_c=23.0,
-            wind_kmh=round(float(today_row["wind_speed_10m"]), 1),
-            precipitation_mm=round(float(today_row["precipitation"]), 1),
-            is_raining=bool(today_row["is_raining"]),
-            is_severe=bool(today_row["is_severe_weather"]),
+            wind_kmh=10.8,
+            precipitation_mm=0.0,
+            is_raining=False,
+            is_severe=False,
         ),
         forecast=forecasts,
         residual_std=round(s.test_residual_std, 3),

@@ -121,7 +121,7 @@ function ForecastAnyDate() {
   const TODAY_ISO = new Date().toISOString().slice(0, 10);
   const MAX_ISO = "2026-12-31";
   // Default to a dramatic example: Christmas Day 2026
-  const [date, setDate] = React.useState("2026-12-25");
+  const [date, setDate] = React.useState(() => new Date().toISOString().slice(0, 10));
   const [res, setRes] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
   const [err, setErr] = React.useState(null);
@@ -301,12 +301,23 @@ function PageToday() {
             </div>
             <div><StatusPill level={d.today_classification} size="lg" /></div>
             <div className="hero-caption mono">
-              actual <span style={{ color: "var(--text-primary)" }}>{d.today_actual_acps.toFixed(2)}</span>
-              <span className="sep">·</span>
-              error <span className={Math.abs(d.today_actual_acps - d.today_predicted_acps) > ci ? "negative" : "positive"}>
-                {Math.abs(d.today_actual_acps - d.today_predicted_acps).toFixed(2)}
-              </span>
-              <span className="sep">·</span>
+              {d.today_actual_acps != null ? (
+                <>
+                  actual <span style={{ color: "var(--text-primary)" }}>{d.today_actual_acps.toFixed(2)}</span>
+                  <span className="sep">·</span>
+                  error <span className={Math.abs(d.today_actual_acps - d.today_predicted_acps) > ci ? "negative" : "positive"}>
+                    {Math.abs(d.today_actual_acps - d.today_predicted_acps).toFixed(2)}
+                  </span>
+                  <span className="sep">·</span>
+                </>
+              ) : (
+                <>
+                  <span style={{ color: "var(--text-muted)" }}>forecast</span>
+                  <span className="sep">·</span>
+                  95% CI <span style={{ color: "var(--text-primary)" }}>±{ci.toFixed(2)}</span>
+                  <span className="sep">·</span>
+                </>
+              )}
               residual σ <span style={{ color: "var(--text-primary)" }}>{d.residual_std.toFixed(3)}</span>
             </div>
             <div style={{ height: 1, background: "var(--border)", margin: "8px 0" }} />
