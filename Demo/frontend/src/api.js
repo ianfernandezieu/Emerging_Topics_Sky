@@ -29,6 +29,7 @@ window.BARAJAS_API = {
   showdown:      (date) => apiGet("/api/model-showdown/" + date),
   residuals:     () => apiGet("/api/residuals"),
   localFeatures: (date) => apiGet("/api/local-features/" + date),
+  futureForecast: (date) => apiGet("/api/future-forecast/" + date),
 };
 
 window.useAsync = function(asyncFn, deps) {

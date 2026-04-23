@@ -795,6 +795,130 @@ def local_features(date: str) -> dict:
     )
 
 
+# ================================================================
+# FUTURE FORECAST — pick any date, get a prediction
+# ================================================================
+
+# Spanish national public holidays falling in 2026. Used to auto-flag
+# is_holiday on a future date without needing to call the Nager.Date API.
+SPANISH_HOLIDAYS_2026 = {
+    "2026-01-01": "New Year's Day",
+    "2026-01-06": "Epiphany",
+    "2026-04-03": "Good Friday",
+    "2026-05-01": "Labour Day",
+    "2026-08-15": "Assumption of Mary",
+    "2026-10-12": "Hispanic Day",
+    "2026-11-01": "All Saints Day",
+    "2026-12-06": "Constitution Day",
+    "2026-12-08": "Immaculate Conception",
+    "2026-12-25": "Christmas Day",
+}
+
+
+def _is_bridge_day_2026(target: pd.Timestamp) -> bool:
+    """Heuristic: a Spanish 'bridge day' is a Mon or Fri that sits between a weekend and a mid-week holiday."""
+    iso = target.strftime("%Y-%m-%d")
+    if iso in SPANISH_HOLIDAYS_2026:
+        return False
+    # Monday with Tuesday holiday, or Friday with Thursday holiday
+    if target.dayofweek == 0:
+        next_day = (target + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+        return next_day in SPANISH_HOLIDAYS_2026
+    if target.dayofweek == 4:
+        prev_day = (target - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+        return prev_day in SPANISH_HOLIDAYS_2026
+    return False
+
+
+@app.get("/api/future-forecast/{date}")
+def future_forecast(date: str) -> dict:
+    """Predict congestion for any future date using auto-computed assumptions.
+
+    For a date past the last row in the data (2026-02-28), we:
+      - Look up whether that ISO date is a Spanish national holiday
+      - Detect bridge days from adjacent holidays
+      - Use the historical (recent-year) mean movements for the same
+        (day-of-week, month) combination as the movements assumption
+      - Default weather to 'clear' (we don't know future weather)
+      - Use the 7-day rolling ACPS from the tail of the available data
+      - Use lag features from the most recent history
+    """
+    s = _require_state()
+    try:
+        target = pd.Timestamp(date)
+    except Exception:
+        raise HTTPException(400, f"bad date: {date}")
+
+    if target.year != 2026:
+        raise HTTPException(400, "this endpoint serves 2026 dates only")
+
+    iso = target.strftime("%Y-%m-%d")
+    dow = int(target.dayofweek)
+    month = int(target.month)
+
+    is_holiday = iso in SPANISH_HOLIDAYS_2026
+    holiday_name = SPANISH_HOLIDAYS_2026.get(iso)
+    is_bridge = _is_bridge_day_2026(target)
+
+    df = s.model_table
+
+    # Historical mean movements for the same (dow, month), restricted to the
+    # post-recovery years so we don't drag in COVID lows.
+    post_recovery_cutoff = pd.Timestamp("2023-01-01")
+    mask = (
+        (df["dow"] == dow)
+        & (df["month"] == month)
+        & (df["date"] >= post_recovery_cutoff)
+    )
+    hits = df[mask]
+    if len(hits) >= 3:
+        movements_assumed = int(hits["total_movements"].mean())
+        movements_basis = (
+            f"post-recovery mean (n={len(hits)}) for "
+            f"{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][dow]} in "
+            f"{['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][month-1]}"
+        )
+    else:
+        movements_assumed = int(df["total_movements"].tail(30).mean())
+        movements_basis = "last-30-day mean (insufficient same dow/month history)"
+
+    rolling_acps_7d = float(df["acps"].tail(7).mean())
+
+    row = _build_feature_row(
+        s,
+        target_date=target,
+        total_movements=movements_assumed,
+        weather_preset="clear",
+        is_holiday=is_holiday,
+        is_bridge_day=is_bridge,
+        rolling_acps_7d=rolling_acps_7d,
+    )
+    pred = float(s.regressor.predict(row)[0])
+    pred_class_model = str(s.classifier.predict(row)[0])
+    ci = 1.96 * s.test_residual_std
+
+    return dict(
+        date=iso,
+        day_of_week=["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"][dow],
+        month_name=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][month - 1],
+        predicted_acps=round(pred, 2),
+        classification=_class_for_acps(pred),
+        classifier_class=pred_class_model,
+        confidence_low=round(pred - ci, 2),
+        confidence_high=round(pred + ci, 2),
+        residual_std=round(s.test_residual_std, 3),
+        assumptions=dict(
+            total_movements=movements_assumed,
+            movements_basis=movements_basis,
+            weather_preset="clear",
+            is_holiday=is_holiday,
+            holiday_name=holiday_name,
+            is_bridge_day=is_bridge,
+            rolling_acps_7d=round(rolling_acps_7d, 2),
+        ),
+    )
+
+
 @app.get("/api/health")
 def health() -> dict:
     s = _require_state()

@@ -116,6 +116,165 @@ window.LineChart = LineChart;
 // ============================================================
 // TODAY
 // ============================================================
+// --- Forecast-any-date card (top of TODAY tab) ---
+function ForecastAnyDate() {
+  const TODAY_ISO = new Date().toISOString().slice(0, 10);
+  const MAX_ISO = "2026-12-31";
+  // Default to a dramatic example: Christmas Day 2026
+  const [date, setDate] = React.useState("2026-12-25");
+  const [res, setRes] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [err, setErr] = React.useState(null);
+
+  const debounceRef = React.useRef(null);
+  React.useEffect(() => {
+    clearTimeout(debounceRef.current);
+    if (!date || date < "2026-01-01" || date > MAX_ISO) {
+      setRes(null); setErr(null); return;
+    }
+    debounceRef.current = setTimeout(() => {
+      setLoading(true);
+      BARAJAS_API.futureForecast(date)
+        .then((r) => { setRes(r); setErr(null); })
+        .catch((e) => { setErr(String(e)); setRes(null); })
+        .finally(() => setLoading(false));
+    }, 200);
+    return () => clearTimeout(debounceRef.current);
+  }, [date]);
+
+  const presets = [
+    { label: "TOMORROW",       date: new Date(Date.now() + 86400000).toISOString().slice(0,10) },
+    { label: "SUMMER PEAK",    date: "2026-08-15" },
+    { label: "HISPANIC DAY",   date: "2026-10-12" },
+    { label: "CHRISTMAS EVE",  date: "2026-12-24" },
+    { label: "NEW YEAR'S EVE", date: "2026-12-31" },
+  ];
+
+  return (
+    <div className="card" style={{ borderColor: "var(--accent)", borderWidth: 1 }}>
+      <div className="card-title">
+        Forecast Any Date in 2026
+        <span className="title-meta mono">pick a date — the model returns its prediction with auto-computed assumptions</span>
+      </div>
+
+      {/* Row 1 — input + presets */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
+        <input
+          type="date"
+          value={date}
+          min={TODAY_ISO < "2026-01-01" ? "2026-01-01" : TODAY_ISO}
+          max={MAX_ISO}
+          onChange={(e) => setDate(e.target.value)}
+          style={{
+            background: "var(--bg-surface-2)", border: "1px solid var(--accent)",
+            color: "var(--text-primary)", padding: "10px 14px",
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 16,
+            letterSpacing: "0.04em", colorScheme: "dark",
+          }}
+        />
+        <span className="mono" style={{ fontSize: 11, color: "var(--text-muted)",
+              letterSpacing: "0.14em", textTransform: "uppercase" }}>
+          range · {TODAY_ISO < "2026-01-01" ? "2026-01-01" : TODAY_ISO} → {MAX_ISO}
+        </span>
+        <div style={{ flex: 1 }} />
+        {presets.map((p) => (
+          <button key={p.label}
+                  className={`btn-ghost ${date === p.date ? "" : ""}`}
+                  onClick={() => setDate(p.date)}
+                  style={date === p.date
+                    ? { borderColor: "var(--accent)", color: "var(--accent-fg)", background: "var(--accent-dim)" }
+                    : {}}>
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {err && <ErrorBanner err={err} />}
+
+      {/* Row 2 — the result */}
+      {!res && !err && !loading && <div className="skeleton">PICK A DATE TO FORECAST</div>}
+      {loading && !res && <div className="skeleton">PREDICTING {date} …</div>}
+
+      {res && (
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(320px, 1fr) minmax(280px, 1fr)",
+          gap: 16,
+          border: "1px solid var(--border)",
+          background: "var(--bg-surface-2)",
+          padding: 20,
+        }}>
+          {/* LEFT — prediction */}
+          <div>
+            <div className="metric-label" style={{ marginBottom: 6 }}>
+              PREDICTED · {res.day_of_week} {res.date}
+            </div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+              <div className="mono" style={{
+                fontSize: 64, fontWeight: 500, lineHeight: 1,
+                color: "var(--text-primary)", letterSpacing: "-0.02em",
+              }}>
+                {res.predicted_acps.toFixed(2)}
+              </div>
+              <div className="mono" style={{ fontSize: 16, color: "var(--text-muted)",
+                    letterSpacing: "0.14em", fontWeight: 500 }}>
+                ACPS
+              </div>
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <StatusPill level={res.classification} size="lg" />
+            </div>
+            <div className="metric-sub mono" style={{ marginTop: 14, color: "var(--text-muted)" }}>
+              95% CI · ±{(1.96 * res.residual_std).toFixed(2)} ACPS
+              <span style={{ color: "var(--text-muted)", margin: "0 6px" }}>·</span>
+              <span style={{ color: "var(--text-secondary)" }}>
+                [{res.confidence_low.toFixed(2)} → {res.confidence_high.toFixed(2)}]
+              </span>
+            </div>
+          </div>
+
+          {/* RIGHT — assumptions */}
+          <div>
+            <div className="metric-label" style={{ marginBottom: 10 }}>
+              MODEL ASSUMPTIONS
+            </div>
+            <dl className="kv" style={{ gridTemplateColumns: "auto 1fr", rowGap: 6 }}>
+              <dt>Movements</dt>
+              <dd>{res.assumptions.total_movements.toLocaleString()}</dd>
+              <dt>Basis</dt>
+              <dd style={{ fontSize: 10.5, color: "var(--text-secondary)", textAlign: "right", lineHeight: 1.4 }}>
+                {res.assumptions.movements_basis}
+              </dd>
+              <dt>Weather</dt>
+              <dd>{res.assumptions.weather_preset.toUpperCase()}</dd>
+              <dt>Holiday</dt>
+              <dd>
+                {res.assumptions.is_holiday
+                  ? <span style={{ color: "var(--warn)" }}>
+                      YES · {res.assumptions.holiday_name}
+                    </span>
+                  : <span style={{ color: "var(--text-muted)" }}>no</span>}
+              </dd>
+              <dt>Bridge day</dt>
+              <dd>
+                {res.assumptions.is_bridge_day
+                  ? <span style={{ color: "var(--warn)" }}>YES</span>
+                  : <span style={{ color: "var(--text-muted)" }}>no</span>}
+              </dd>
+              <dt>7-day ACPS</dt>
+              <dd>{res.assumptions.rolling_acps_7d.toFixed(2)}</dd>
+            </dl>
+            <div className="metric-sub mono" style={{ marginTop: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>
+              Weather is assumed clear (unknown in advance). Movements come from
+              the post-2023 historical mean for the same day-of-week and month.
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PageToday() {
   const { loading, data, error } = useAsync(() => BARAJAS_API.today(), []);
   if (error) return <div className="page"><ErrorBanner err={error} /></div>;
@@ -128,6 +287,7 @@ function PageToday() {
 
   return (
     <div className="page">
+      <ForecastAnyDate />
       <div className="grid grid-7-5">
         <div className="card">
           <div className="card-title">
